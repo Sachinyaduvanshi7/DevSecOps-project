@@ -1,20 +1,25 @@
-FROM adoptopenjdk/openjdk11:alpine-slim as build
+# ---------- BUILD STAGE ----------
+FROM maven:3.9.9-eclipse-temurin-17 AS build
+
 WORKDIR /app
 
-COPY mvnw .
-COPY .mvn .mvn
 COPY pom.xml .
-COPY src src
+COPY src ./src
 
-RUN chmod +x mvnw
-RUN ./mvnw package
-COPY target/*.jar app.jar
+RUN mvn clean package -DskipTests
 
-FROM adoptopenjdk/openjdk11:alpine-slim
-VOLUME /tmp
-RUN addgroup --system javauser && adduser -S -s /bin/false -G javauser javauser
+
+# ---------- RUNTIME STAGE ----------
+FROM eclipse-temurin:17-jdk-alpine
+
 WORKDIR /app
-COPY --from=build /app/app.jar .
+
+# Create non-root user (good security practice)
+RUN addgroup -S javauser && adduser -S javauser -G javauser
+
+COPY --from=build /app/target/*.jar app.jar
+
 RUN chown -R javauser:javauser /app
 USER javauser
+
 ENTRYPOINT ["java","-jar","app.jar"]
